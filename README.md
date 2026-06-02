@@ -6,7 +6,18 @@ This repository is used by [Catalyst](https://github.com/imbue-ai/catalyst/) and
 
 To keep the repository lightweight and ensure compliance with licensing terms, **binary files (including PDFs) and assets of unclear licensing must not be checked directly into this git repository.**
 
-Instead, please register any such files in the central `BLOBS` registry within the root [`download_blobs.py`](download_blobs.py) script. This allows research agents and contributors to download them dynamically on demand.
+### The `blobs.json` Convention
+
+Each template folder remains self-contained. To configure binary reference assets for a template, create a `blobs.json` file inside that template's folder (e.g., `bifurcation/blobs.json`).
+
+The `blobs.json` file must contain a flat JSON key-value mapping from the target filename (relative to the template directory) to its source URL:
+```json
+{
+  "there_will_be_a_scientific_theory_of_deep_learning.pdf": "https://arxiv.org/pdf/2604.21691"
+}
+```
+
+The root [`download_blobs.py`](download_blobs.py) script dynamically scans the repository for templates, parses these `blobs.json` configuration files, and downloads or manages the assets.
 
 ### Usage
 

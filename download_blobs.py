@@ -7,20 +7,46 @@ Specifically used to retrieve large reference materials that are excluded from g
 """
 
 import argparse
+import json
 import os
 import sys
 import urllib.request
 import urllib.error
 
-# Map of template names to their associated binary files (target path relative to template folder -> source URL)
-BLOBS = {
-    "learning_mechanics": {
-        "there_will_be_a_scientific_theory_of_deep_learning.pdf": "https://arxiv.org/pdf/2604.21691",
-    },
-    "bifurcation": {
-        "there_will_be_a_scientific_theory_of_deep_learning.pdf": "https://arxiv.org/pdf/2604.21691",
-    }
-}
+
+def find_templates() -> list:
+    """
+    Scans the repository root for template directories.
+    A template is any directory that doesn't start with '.' and is not '__pycache__'.
+    """
+    templates = []
+    try:
+        for entry in os.listdir("."):
+            if os.path.isdir(entry) and not entry.startswith(".") and entry != "__pycache__":
+                templates.append(entry)
+    except Exception as e:
+        print(f"Error scanning directory for templates: {e}", file=sys.stderr)
+    return sorted(templates)
+
+
+def load_blobs() -> dict:
+    """
+    Loads blob configurations dynamically from each template's blobs.json file.
+    If a template does not contain a blobs.json file, it is treated as empty.
+    """
+    blobs = {}
+    for template in find_templates():
+        json_path = os.path.join(template, "blobs.json")
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, "r", encoding="utf-8") as f:
+                    blobs[template] = json.load(f)
+            except Exception as e:
+                print(f"Error parsing JSON file {json_path}: {e}", file=sys.stderr)
+                blobs[template] = {}
+        else:
+            blobs[template] = {}
+    return blobs
 
 
 def download_file(url: str, target_path: str) -> bool:
@@ -41,14 +67,7 @@ def download_file(url: str, target_path: str) -> bool:
     print(f"Downloading {url} -> {target_path}...")
     tmp_path = target_path + ".tmp"
     try:
-        # Some CDNs or websites block default Python user-agents (e.g. 403 Forbidden).
-        # We specify a standard browser user-agent to ensure robust downloads.
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        req = urllib.request.Request(url, headers=headers)
-        
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(url) as response:
             with open(tmp_path, "wb") as f:
                 # Read in chunks of 64KB for memory efficiency and robustness
                 while True:
@@ -74,13 +93,16 @@ def download_file(url: str, target_path: str) -> bool:
 
 
 def main():
+    # Load blobs dynamically from templates
+    blobs = load_blobs()
+
     parser = argparse.ArgumentParser(
         description="Download binary reference blobs for the catalyst templates."
     )
     parser.add_argument(
         "template",
         nargs="?",
-        choices=list(BLOBS.keys()),
+        choices=list(blobs.keys()),
         help="Specific template name to process blobs for (options: %(choices)s). If omitted, processes blobs for all templates.",
     )
     parser.add_argument(
@@ -95,13 +117,16 @@ def main():
     if args.template:
         templates_to_process = [args.template]
     else:
-        templates_to_process = list(BLOBS.keys())
+        # Filter out templates that have no blobs configured
+        templates_to_process = [t for t, files in blobs.items() if files]
 
     success = True
     if args.clean:
         for template in templates_to_process:
+            if not blobs[template]:
+                continue
             print(f"Cleaning blobs for template: {template}")
-            for target, _ in BLOBS[template].items():
+            for target, _ in blobs[template].items():
                 normalized_target = os.path.normpath(os.path.join(template, target))
                 if os.path.exists(normalized_target):
                     try:
@@ -114,8 +139,10 @@ def main():
                     print(f"Already clean: {normalized_target}")
     else:
         for template in templates_to_process:
+            if not blobs[template]:
+                continue
             print(f"Processing template: {template}")
-            for target, url in BLOBS[template].items():
+            for target, url in blobs[template].items():
                 # Standardize path formatting for current OS, prepending template directory
                 normalized_target = os.path.normpath(os.path.join(template, target))
                 if not download_file(url, normalized_target):
