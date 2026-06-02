@@ -1,0 +1,15 @@
+# Exclude downloaded binary files
+*.pdf
+*.tmp
+
+# Python artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
