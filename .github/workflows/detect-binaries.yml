@@ -1,0 +1,73 @@
+name: Scan for Binary Files
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  detect-binaries:
+    name: Detect Binary Additions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run binary detection script
+        id: detect
+        run: python3 .github/scripts/detect_binaries.py
+
+      - name: Post PR Comment
+        if: steps.detect.outputs.binaries_found == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const commentPath = path.join(process.env.GITHUB_WORKSPACE, '.github/detected_binaries_comment.md');
+            if (fs.existsSync(commentPath)) {
+              const body = fs.readFileSync(commentPath, 'utf8');
+              
+              // List comments to check if we've already posted one
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+              
+              const botComment = comments.find(comment => 
+                comment.body.includes('### ⚠️ Direct Binary File Uploads Detected')
+              );
+              
+              if (botComment) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: body,
+                });
+                console.log('Updated existing PR comment.');
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: body,
+                });
+                console.log('Posted new PR comment.');
+              }
+            } else {
+              console.log('Comment file not found.');
+            }
+
+      - name: Fail if binary files found
+        if: steps.detect.outputs.binaries_found == 'true'
+        run: |
+          echo "::error::Binary files were added in this PR. Please use blobs.json instead."
+          exit 1
