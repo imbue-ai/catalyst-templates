@@ -7,13 +7,6 @@ import os
 
 os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-# Disable Inductor's graph caches. They pickle the FX graph to compute a cache
-# key, and pickling a reference to a train.py global re-enters the import system
-# for the `train` module -- whose import lock is held by the main thread, which
-# is blocked in backward() waiting on this very compile. That circular wait hangs
-# under `modal run` (where the script runs via `import train`).
-os.environ["TORCHINDUCTOR_FX_GRAPH_CACHE"] = "0"
-os.environ["TORCHINDUCTOR_AUTOGRAD_CACHE"] = "0"
 
 import gc
 import math
