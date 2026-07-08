@@ -12,6 +12,7 @@ dependencies = [
     "scipy>=1.17.1",
     "sympy>=1.14.0",
     "modal>=1.4.0",
+    "python-socks[asyncio]",
 ]
 
 [tool.uv]
