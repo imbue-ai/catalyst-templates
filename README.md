@@ -35,3 +35,7 @@ To clean up and delete all downloaded binary assets:
 ```bash
 python3 download_blobs.py --clean
 ```
+
+## License
+
+Imbue's original research templates and supporting code are licensed under the [MIT License](LICENSE). Third-party code, datasets, papers, and downloaded assets retain their own licenses and attribution, including material referenced by `blobs.json`.
